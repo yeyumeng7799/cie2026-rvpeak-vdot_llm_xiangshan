@@ -86,7 +86,7 @@ make emu CONFIG=MinimalConfig EMU_TRACE=1 -j$(nproc)
 >
 > 在代码没有大幅改动的情况下，第二次重新编译由于增量编译和缓存机制，耗时大幅缩短至约 13 分钟。因此建议在环境搭建时预留充足的首次编译时间，避免误以为环境配置失败。
 
-> **说明**：本环境使用 `riscv64-linux-gnu-` 工具链编译 nexus-am 应用，因此编译测试程序时需要加上 `LINUX_GNU_TOOLCHAIN=1` 参数。
+> **说明**：安装 `riscv64-unknown-linux-gnu-gcc` 后，编译 nexus-am 测试程序时无需再加 `LINUX_GNU_TOOLCHAIN=1` 参数。
 
 ## 四、遇到的问题及解决方案
 
@@ -112,7 +112,7 @@ make emu CONFIG=MinimalConfig EMU_TRACE=1 -j$(nproc)
 
 ```bash
 cd $AM_HOME/apps/hello/
-make ARCH=riscv64-xs LINUX_GNU_TOOLCHAIN=1
+make ARCH=riscv64-xs
 cd $NOOP_HOME
 ./build/emu -i $AM_HOME/apps/hello/build/hello-riscv64-xs.bin --no-diff
 ```
@@ -149,7 +149,7 @@ int main()
 
 ```bash
 cd $AM_HOME/apps/hello/
-make ARCH=riscv64-xs LINUX_GNU_TOOLCHAIN=1
+make ARCH=riscv64-xs
 cd $NOOP_HOME
 ./build/emu -i $AM_HOME/apps/hello/build/hello-riscv64-xs.bin --no-diff
 ```
@@ -177,9 +177,7 @@ Host time spent: 9,548ms
 | NEMU 最新 commit | `c5b49241` |
 | nexus-am 最新 commit | `92b36da1` |
 
-## 五、工具链说明
-
-本环境在编译 nexus-am 测试程序时，需要注意 RISC-V 交叉编译工具链的选择。
+## 五、RISC-V 交叉编译工具链安装与配置
 
 ### 5.1 nexus-am 默认工具链
 
@@ -195,31 +193,84 @@ endif
 
 默认情况下，nexus-am 会调用 `riscv64-unknown-linux-gnu-gcc`。
 
-### 5.2 本环境实际安装的工具链
+### 5.2 工具链版本差异
 
-通过 `which` 和 `--version` 检查，本环境实际存在的 RISC-V 工具链为：
+RISC-V GNU 工具链按目标库和 vendor 字段有多种变体：
 
-| 工具链 | 是否存在 | 版本 |
-|--------|----------|------|
-| `riscv64-unknown-linux-gnu-gcc` | ❌ 不存在 | — |
-| `riscv64-linux-gnu-gcc` | ✅ 存在 | 11.4.0 |
-| `riscv64-unknown-elf-gcc` | ✅ 存在 | 10.2.0 |
+| 工具链 | 目标环境 | 默认 C 库 | 用途 |
+|--------|----------|-----------|------|
+| `riscv64-unknown-linux-gnu-gcc` | Linux ABI | newlib/glibc | RISC-V GNU 工具链官方命名，香山 nexus-am 默认使用 |
+| `riscv64-linux-gnu-gcc` | Linux ABI | glibc | Ubuntu/Debian 发行版官方包，功能等价 |
+| `riscv64-unknown-elf-gcc` | 裸机 ELF | newlib | 用于没有操作系统的嵌入式程序 |
 
-### 5.3 为什么需要 `LINUX_GNU_TOOLCHAIN=1`
+### 5.3 初始环境与问题
 
-`riscv64-linux-gnu-gcc` 与 `riscv64-unknown-linux-gnu-gcc` 在功能上都可以满足 nexus-am 的编译需求，但二者前缀不同。由于本环境未安装 `riscv64-unknown-linux-gnu-gcc`，直接在 `nexus-am/apps/hello/` 下执行 `make ARCH=riscv64-xs` 会报错：
-
-```
-make: riscv64-unknown-linux-gnu-gcc: No such file or directory
-```
-
-因此需要在编译时显式指定使用 `riscv64-linux-gnu-gcc`：
+环境初始化后，本机已安装 `riscv64-linux-gnu-gcc`（gcc 11.4.0）和 `riscv64-unknown-elf-gcc`（gcc 10.2.0），但缺少 nexus-am 默认调用的 `riscv64-unknown-linux-gnu-gcc`。因此最初编译 hello 时必须加参数：
 
 ```bash
 make ARCH=riscv64-xs LINUX_GNU_TOOLCHAIN=1
 ```
 
-`riscv64-unknown-elf-gcc` 虽然也是 RISC-V 工具链，但它面向裸机 ELF 程序，不用于 `ARCH=riscv64-xs` 的 nexus-am 应用编译。
+虽然这种方式可以工作，但每次输入较长，且与官方默认流程不一致，因此决定安装真正的 `riscv64-unknown-linux-gnu-gcc`。
+
+### 5.4 安装 `riscv64-unknown-linux-gnu-gcc`
+
+从 [RISC-V GNU Toolchain 官方 Release 页面](https://github.com/riscv-collab/riscv-gnu-toolchain/releases) 下载适用于 Ubuntu 22.04 的预编译版本：
+
+```text
+文件：riscv64-glibc-ubuntu-22.04-gcc.tar.xz
+大小：668 MB
+sha256：79f4aba41bda21262f154c22172e3473566927da7a78d5e2555b6a820083b8e4
+下载地址：https://github.com/riscv-collab/riscv-gnu-toolchain/releases/download/2026.07.12/riscv64-glibc-ubuntu-22.04-gcc.tar.xz
+```
+
+> **说明**：`glibc` 版本提供 Linux ABI 工具链，包含 `riscv64-unknown-linux-gnu-gcc`，符合 nexus-am 默认需求。选择 `elf` 版本则会得到 `riscv64-unknown-elf-gcc`，不适用于 `ARCH=riscv64-xs`。
+
+安装步骤：
+
+```bash
+# 1. 解压到 /home/yym/riscv/
+mkdir -p /home/yym/riscv
+cd /home/yym/riscv
+tar -xJf /path/to/riscv64-glibc-ubuntu-22.04-gcc.tar.xz
+
+# 2. 添加到 PATH（写入 ~/.bashrc）
+echo 'export PATH=/home/yym/riscv/riscv/bin:$PATH' >> ~/.bashrc
+
+# 3. 在 xs-env 的 env.sh 中也添加 PATH，确保每次 source env.sh 后可用
+export PATH=/home/yym/riscv/riscv/bin:$PATH
+```
+
+### 5.5 验证安装
+
+```bash
+riscv64-unknown-linux-gnu-gcc --version
+```
+
+输出示例：
+
+```text
+riscv64-unknown-linux-gnu-gcc (g6afcc4f6d) 16.1.0
+Copyright (C) 2026 Free Software Foundation, Inc.
+```
+
+### 5.6 编译验证
+
+安装完成后，无需再加 `LINUX_GNU_TOOLCHAIN=1`：
+
+```bash
+cd $AM_HOME/apps/hello/
+make ARCH=riscv64-xs
+cd $NOOP_HOME
+./build/emu -i $AM_HOME/apps/hello/build/hello-riscv64-xs.bin --no-diff
+```
+
+输出：
+
+```text
+hello xiangshan, I am rvpeak, IP address
+Core 0: HIT GOOD TRAP at pc = 0x8000014c
+```
 
 ## 七、结论
 
