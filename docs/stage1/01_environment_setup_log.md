@@ -177,6 +177,50 @@ Host time spent: 9,548ms
 | NEMU 最新 commit | `c5b49241` |
 | nexus-am 最新 commit | `92b36da1` |
 
+## 五、工具链说明
+
+本环境在编译 nexus-am 测试程序时，需要注意 RISC-V 交叉编译工具链的选择。
+
+### 5.1 nexus-am 默认工具链
+
+nexus-am 的 `am/arch/isa/riscv64.mk` 中默认配置如下：
+
+```makefile
+ifeq ($(LINUX_GNU_TOOLCHAIN),1)
+CROSS_COMPILE := riscv64-linux-gnu-
+else
+CROSS_COMPILE := riscv64-unknown-linux-gnu-
+endif
+```
+
+默认情况下，nexus-am 会调用 `riscv64-unknown-linux-gnu-gcc`。
+
+### 5.2 本环境实际安装的工具链
+
+通过 `which` 和 `--version` 检查，本环境实际存在的 RISC-V 工具链为：
+
+| 工具链 | 是否存在 | 版本 |
+|--------|----------|------|
+| `riscv64-unknown-linux-gnu-gcc` | ❌ 不存在 | — |
+| `riscv64-linux-gnu-gcc` | ✅ 存在 | 11.4.0 |
+| `riscv64-unknown-elf-gcc` | ✅ 存在 | 10.2.0 |
+
+### 5.3 为什么需要 `LINUX_GNU_TOOLCHAIN=1`
+
+`riscv64-linux-gnu-gcc` 与 `riscv64-unknown-linux-gnu-gcc` 在功能上都可以满足 nexus-am 的编译需求，但二者前缀不同。由于本环境未安装 `riscv64-unknown-linux-gnu-gcc`，直接在 `nexus-am/apps/hello/` 下执行 `make ARCH=riscv64-xs` 会报错：
+
+```
+make: riscv64-unknown-linux-gnu-gcc: No such file or directory
+```
+
+因此需要在编译时显式指定使用 `riscv64-linux-gnu-gcc`：
+
+```bash
+make ARCH=riscv64-xs LINUX_GNU_TOOLCHAIN=1
+```
+
+`riscv64-unknown-elf-gcc` 虽然也是 RISC-V 工具链，但它面向裸机 ELF 程序，不用于 `ARCH=riscv64-xs` 的 nexus-am 应用编译。
+
 ## 七、结论
 
 环境部署成功，可正常编译香山仿真器并运行 Hello XiangShan 程序。已按赛题要求修改并运行 hello 程序，成功输出 `hello xiangshan, I am rvpeak, IP address`。当前 xs-env 中各子模块版本稳定，具备进入第二阶段 vdot 指令设计与实现的条件。
