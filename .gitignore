@@ -1,0 +1,25 @@
+# Build artifacts
+build/
+*.o
+*.bin
+*.elf
+
+# Waveform files
+*.vcd
+*.fst
+*.vpd
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+
+# Large files
+*.mp4
+*.avi
+*.mkv
