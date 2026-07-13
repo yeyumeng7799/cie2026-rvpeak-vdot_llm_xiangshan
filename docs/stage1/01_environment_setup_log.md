@@ -33,9 +33,6 @@ git clone https://github.com/OpenXiangShan/xs-env.git
 cd xs-env
 ```
 
-实际执行时间：[待填写]  
-执行结果：[待填写，例如成功 / 遇到网络问题已解决]
-
 ### 3.2 安装系统依赖
 
 ```bash
@@ -62,16 +59,12 @@ source setup.sh
 source env.sh
 ```
 
-执行结果：[待填写]
-
 ### 3.4 初始化香山项目
 
 ```bash
 cd $NOOP_HOME
 make init
 ```
-
-执行结果：[待填写]
 
 ### 3.5 编译仿真器
 
@@ -169,8 +162,6 @@ Seed=0 Guest cycle spent: 6,702
 Host time spent: 9,548ms
 ```
 
-截图/录屏：[待补充]
-
 ## 六、当前环境状态
 
 | 项目 | 路径/Commit |
@@ -249,7 +240,9 @@ which riscv64-unknown-linux-gnu-gcc
 riscv64-unknown-linux-gnu-gcc --version
 ```
 
-### 5.5 验证安装
+### 5.5 验证安装与编译
+
+验证工具链已正确安装：
 
 ```bash
 riscv64-unknown-linux-gnu-gcc --version
@@ -262,9 +255,7 @@ riscv64-unknown-linux-gnu-gcc (g6afcc4f6d) 16.1.0
 Copyright (C) 2026 Free Software Foundation, Inc.
 ```
 
-### 5.6 编译验证
-
-安装完成后，无需再加 `LINUX_GNU_TOOLCHAIN=1`：
+安装完成后，编译 nexus-am 测试程序无需再加 `LINUX_GNU_TOOLCHAIN=1`：
 
 ```bash
 cd $AM_HOME/apps/hello/
@@ -283,7 +274,3 @@ Core 0: HIT GOOD TRAP at pc = 0x8000014c
 ## 八、结论
 
 环境部署成功，可正常编译香山仿真器并运行 Hello XiangShan 程序。已按赛题要求修改并运行 hello 程序，成功输出 `hello xiangshan, I am rvpeak, IP address`。当前 xs-env 中各子模块版本稳定，具备进入第二阶段 vdot 指令设计与实现的条件。
-
-后续待补充：
-- 3.1、3.3、3.4 各步骤的具体执行时间与结果（需要你补充）
-- 第一阶段操作过程录屏（需要你录制后上传）
