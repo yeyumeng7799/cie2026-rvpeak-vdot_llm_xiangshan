@@ -18,7 +18,7 @@
 | gcc | 11.4.0 | `gcc --version` |
 | g++ | 11.4.0 | `g++ --version` |
 | Java | OpenJDK 21.0.11 | `java -version` |
-| mill | 0.12.3 | `mill --version` |
+| mill | 0.12.3（XiangShan 项目通过 `.mill-version` 固定） | `mill --version` |
 | sbt | 未安装（本项目未使用） | - |
 | Verilator | 5.051 | `verilator --version` |
 | Git | 2.34.1 | `git --version` |
@@ -43,7 +43,7 @@ sudo -s ./setup-tools.sh
 
 > **实际经历**：`setup-tools.sh` 会尝试从网络下载 `mill` 构建工具。由于国内代理网络不稳定，GitHub 连接经常会被中断或卡掉，无论是直接访问还是通过国内镜像中转代理，都无法稳定完成 `mill` 的自动下载。此前学习 Chisel 时曾经历过类似问题，当时采用 `sbt` 替代 `mill` 完成构建。本次尝试直接使用 `mill`，但自动下载仍然失败。
 >
-> **解决方法**：手动前往 [GitHub mill releases](https://github.com/com-lihaoyi/mill/releases) 页面，下载与香山环境匹配版本的 `mill` 可执行文件，将其重命名为 `mill` 后放置到系统 `PATH` 目录（例如 `/usr/local/bin/`）中，并赋予可执行权限。完成手动安装后，执行 `mill --version` 确认可用。
+> **解决方法**：手动前往 [GitHub mill releases](https://github.com/com-lihaoyi/mill/releases) 页面，下载与香山环境匹配版本的 `mill` 可执行文件，将其重命名为 `mill` 后放置到系统 `PATH` 目录（例如 `/usr/local/bin/`）中，并赋予可执行权限。完成手动安装后，在 `xs-env/XiangShan` 目录下执行 `mill -v` 确认版本为 0.12.3（XiangShan 项目通过 `.mill-version` 文件固定该版本；在 `xs-env` 根目录执行可能因缺少该文件而显示其他版本）。
 >
 > ```bash
 > # 示例：手动安装 mill
