@@ -162,7 +162,7 @@ Seed=0 Guest cycle spent: 6,702
 Host time spent: 9,548ms
 ```
 
-运行过程录屏已本地保存至 `videos/Screencast from 2026年07月13日 14时54分49秒.webm`，后续将上传至大赛系统视频提交位置，不放入本代码仓库。
+运行过程录屏已本地保存至 `videos/stage1_operation_recording.webm`，后续将上传至大赛系统视频提交位置，不放入本代码仓库。
 
 ## 六、当前环境状态
 

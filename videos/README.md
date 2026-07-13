@@ -14,5 +14,5 @@
 
 | 文件名 | 用途 | 提交位置 |
 |--------|------|----------|
-| `Screencast from 2026年07月13日 14时54分49秒.webm` | 第一阶段操作过程录屏 | 大赛系统视频提交位置 ① |
+| `stage1_operation_recording.webm` | 第一阶段操作过程录屏 | 大赛系统视频提交位置 ① |
 | `hello_xiangshan_screenshot.png` | hello 程序运行结果截图 | 大赛系统文档提交位置 ① / 本仓库备份 |
