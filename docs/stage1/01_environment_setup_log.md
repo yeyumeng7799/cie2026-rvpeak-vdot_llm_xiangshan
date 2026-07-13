@@ -18,7 +18,7 @@
 | gcc | 11.4.0 | `gcc --version` |
 | g++ | 11.4.0 | `g++ --version` |
 | Java | OpenJDK 21.0.11 | `java -version` |
-| sbt / mill | sbt 2.0.1 / [待填写] | `sbt --version` / `mill --version` |
+| sbt / mill | sbt 2.0.1 / mill 1.1.7（默认） | `sbt --version` / `mill --version` |
 | Verilator | 5.051 | `verilator --version` |
 | Git | 2.34.1 | `git --version` |
 
@@ -86,7 +86,10 @@ make emu CONFIG=MinimalConfig EMU_TRACE=1 -j$(nproc)
 >
 > 在代码没有大幅改动的情况下，第二次重新编译由于增量编译和缓存机制，耗时大幅缩短至约 13 分钟。因此建议在环境搭建时预留充足的首次编译时间，避免误以为环境配置失败。
 
-> **说明**：安装 `riscv64-unknown-linux-gnu-gcc` 后，编译 nexus-am 测试程序时无需再加 `LINUX_GNU_TOOLCHAIN=1` 参数。
+> **说明**：
+> - `CONFIG=MinimalConfig`：使用香山最小配置进行编译，移除了 L2/L3 缓存等复杂模块，可降低首次编译复杂度，适合环境验证。
+> - `EMU_TRACE=1`：启用仿真跟踪功能，生成波形文件（如 `.vcd` 或 `.fst`），便于后续分析指令执行过程。
+> - 安装 `riscv64-unknown-linux-gnu-gcc` 后，编译 nexus-am 测试程序时无需再加 `LINUX_GNU_TOOLCHAIN=1` 参数。
 
 ## 四、遇到的问题及解决方案
 
@@ -94,7 +97,7 @@ make emu CONFIG=MinimalConfig EMU_TRACE=1 -j$(nproc)
 |----------|----------|
 | `mill` 自动下载失败 | 由于 GitHub 网络不稳定，国内代理和中转镜像均无法可靠下载 `mill`。改为手动从 mill 官方 release 页面下载对应版本，重命名后放入 `PATH`，验证 `mill --version` 可用。 |
 | 香山仿真器首次编译耗时极长 | 首次编译需要完成 Chisel → Verilog → Verilator C++ → 可执行文件的完整流程，在 20 核机器上耗时约 5 小时。预留足够时间，确认进程未中断即可。第二次编译借助增量编译缩短至约 13 分钟。 |
-| nexus-am 默认工具链不匹配 | 环境默认调用 `riscv64-unknown-linux-gnu-gcc`，但本机已安装 `riscv64-linux-gnu-gcc`。编译测试程序时添加 `LINUX_GNU_TOOLCHAIN=1` 参数指定使用现有工具链。 |
+| nexus-am 默认工具链不匹配 | 环境默认调用 `riscv64-unknown-linux-gnu-gcc`，但本机最初只安装了 `riscv64-linux-gnu-gcc`。临时解决方案是编译测试程序时添加 `LINUX_GNU_TOOLCHAIN=1` 参数；最终解决方案是从 RISC-V GNU Toolchain 官方 release 下载并安装真正的 `riscv64-unknown-linux-gnu-gcc`。 |
 
 ### 环境搭建心路历程
 
@@ -177,7 +180,7 @@ Host time spent: 9,548ms
 | NEMU 最新 commit | `c5b49241` |
 | nexus-am 最新 commit | `92b36da1` |
 
-## 五、RISC-V 交叉编译工具链安装与配置
+## 七、RISC-V 交叉编译工具链安装与配置
 
 ### 5.1 nexus-am 默认工具链
 
@@ -199,7 +202,7 @@ RISC-V GNU 工具链按目标库和 vendor 字段有多种变体：
 
 | 工具链 | 目标环境 | 默认 C 库 | 用途 |
 |--------|----------|-----------|------|
-| `riscv64-unknown-linux-gnu-gcc` | Linux ABI | newlib/glibc | RISC-V GNU 工具链官方命名，香山 nexus-am 默认使用 |
+| `riscv64-unknown-linux-gnu-gcc` | Linux ABI | glibc（本环境下载的预编译版） | RISC-V GNU 工具链官方命名，香山 nexus-am 默认使用 |
 | `riscv64-linux-gnu-gcc` | Linux ABI | glibc | Ubuntu/Debian 发行版官方包，功能等价 |
 | `riscv64-unknown-elf-gcc` | 裸机 ELF | newlib | 用于没有操作系统的嵌入式程序 |
 
@@ -234,11 +237,15 @@ mkdir -p /home/yym/riscv
 cd /home/yym/riscv
 tar -xJf /path/to/riscv64-glibc-ubuntu-22.04-gcc.tar.xz
 
-# 2. 添加到 PATH（写入 ~/.bashrc）
+# 2. 添加到 PATH（写入 ~/.bashrc），确保新终端中可用
 echo 'export PATH=/home/yym/riscv/riscv/bin:$PATH' >> ~/.bashrc
 
-# 3. 在 xs-env 的 env.sh 中也添加 PATH，确保每次 source env.sh 后可用
-export PATH=/home/yym/riscv/riscv/bin:$PATH
+# 3. 重新加载 ~/.bashrc 或打开新终端
+source ~/.bashrc
+
+# 4. 验证工具链可用
+which riscv64-unknown-linux-gnu-gcc
+riscv64-unknown-linux-gnu-gcc --version
 ```
 
 ### 5.5 验证安装
@@ -272,10 +279,10 @@ hello xiangshan, I am rvpeak, IP address
 Core 0: HIT GOOD TRAP at pc = 0x8000014c
 ```
 
-## 七、结论
+## 八、结论
 
 环境部署成功，可正常编译香山仿真器并运行 Hello XiangShan 程序。已按赛题要求修改并运行 hello 程序，成功输出 `hello xiangshan, I am rvpeak, IP address`。当前 xs-env 中各子模块版本稳定，具备进入第二阶段 vdot 指令设计与实现的条件。
 
 后续待补充：
-- 3.1、3.3、3.4 各步骤的具体执行时间
-- 第一阶段操作过程录屏
+- 3.1、3.3、3.4 各步骤的具体执行时间与结果（需要你补充）
+- 第一阶段操作过程录屏（需要你录制后上传）
