@@ -6,8 +6,8 @@
 
 | 文件名 | 用途 | 对应赛题要求 |
 |--------|------|--------------|
-| `stage1_operation_recording.mp4` | 第一阶段完整操作过程录屏 | 系统视频提交位置 ① |
-| `hello_xiangshan_screenshot.png` | hello 程序运行结果截图 | 环境部署验证佐证 |
+| `Screencast from 2026年07月13日 14时54分49秒.webm` | 第一阶段完整操作过程录屏 | 系统视频提交位置 ① |
+| `hello_xiangshan_screenshot.png` | hello 程序运行结果截图（待补充） | 环境部署验证佐证 |
 
 ## 录制建议
 
