@@ -18,7 +18,8 @@
 | gcc | 11.4.0 | `gcc --version` |
 | g++ | 11.4.0 | `g++ --version` |
 | Java | OpenJDK 21.0.11 | `java -version` |
-| sbt / mill | sbt 2.0.1 / mill 1.1.7（默认） | `sbt --version` / `mill --version` |
+| mill | 0.12.3 | `mill --version` |
+| sbt | 未安装（本项目未使用） | - |
 | Verilator | 5.051 | `verilator --version` |
 | Git | 2.34.1 | `git --version` |
 
