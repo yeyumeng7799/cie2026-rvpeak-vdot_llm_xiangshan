@@ -85,6 +85,8 @@ make emu CONFIG=MinimalConfig EMU_TRACE=1 -j$(nproc)
 > - `EMU_TRACE=1`：启用仿真跟踪功能，生成波形文件（如 `.vcd` 或 `.fst`），便于后续分析指令执行过程。
 > - 安装 `riscv64-unknown-linux-gnu-gcc` 后，编译 nexus-am 测试程序时无需再加 `LINUX_GNU_TOOLCHAIN=1` 参数。
 
+![编译emu](./images/编译emu.png)
+
 ## 四、遇到的问题及解决方案
 
 | 问题描述 | 解决方法 |
@@ -162,6 +164,8 @@ Seed=0 Guest cycle spent: 6,702
 Host time spent: 9,548ms
 ```
 
+![hello输出结果](./images/hello输出结果.png)
+
 ### 5.3 终端操作完整记录
 
 以下为实际终端操作过程的完整记录：
@@ -191,7 +195,9 @@ yym@yym:~/xs-env/XiangShan$ ./build/emu -i $AM_HOME/apps/hello/build/hello-riscv
 
 运行 emu 后的输出结果见 5.2 节"实际输出"。
 
-运行过程录屏已本地保存至 `videos/stage1_operation_recording.webm`，后续将上传至大赛系统视频提交位置，不放入本代码仓库。
+![终端操作及输出](./images/终端操作及输出截图.png)
+
+运行过程录屏已保存至 `videos/stage1_operation_recording.webm`，同时上传至本仓库留档备份，后续将上传至大赛系统视频提交位置。
 
 ## 六、当前环境状态
 
