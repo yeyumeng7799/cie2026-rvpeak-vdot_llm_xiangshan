@@ -117,7 +117,7 @@ cd $NOOP_HOME
 实际输出：
 
 ```
-hello xiangshan, I am rvpeak, IP address
+hello xiangshan, I am rvpeak, IP:10.100.173.123
 Core 0: HIT GOOD TRAP at pc = 0x8000014c
 Core-0 instrCnt = 1,053, cycleCnt = 6,698, IPC = 0.157211
 ```
@@ -127,7 +127,7 @@ Core-0 instrCnt = 1,053, cycleCnt = 6,698, IPC = 0.157211
 修改 `$AM_HOME/apps/hello/hello.c` 源码，将输出改为：
 
 ```
-hello xiangshan, I am rvpeak, IP address
+hello xiangshan, I am rvpeak, IP:10.100.173.123
 ```
 
 修改内容：
@@ -137,7 +137,7 @@ hello xiangshan, I am rvpeak, IP address
 
 int main()
 {
-    printf("hello xiangshan, I am rvpeak, IP address\n");
+    printf("hello xiangshan, I am rvpeak, IP:10.100.173.123\n");
     return 0;
 }
 ```
@@ -155,7 +155,7 @@ cd $NOOP_HOME
 
 ```
 The image is /home/yym/xs-env/nexus-am/apps/hello/build/hello-riscv64-xs.bin
-hello xiangshan, I am rvpeak, IP address
+hello xiangshan, I am rvpeak, IP:10.100.173.123
 Core 0: HIT GOOD TRAP at pc = 0x8000014c
 Core-0 instrCnt = 1,053, cycleCnt = 6,698, IPC = 0.157211
 Seed=0 Guest cycle spent: 6,702
