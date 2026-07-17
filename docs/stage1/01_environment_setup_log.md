@@ -211,7 +211,7 @@ yym@yym:~/xs-env/XiangShan$ ./build/emu -i $AM_HOME/apps/hello/build/hello-riscv
 
 ## 七、RISC-V 交叉编译工具链安装与配置
 
-### 5.1 nexus-am 默认工具链
+### 7.1 nexus-am 默认工具链
 
 nexus-am 的 `am/arch/isa/riscv64.mk` 中默认配置如下：
 
@@ -225,7 +225,7 @@ endif
 
 默认情况下，nexus-am 会调用 `riscv64-unknown-linux-gnu-gcc`。
 
-### 5.2 工具链版本差异
+### 7.2 工具链版本差异
 
 RISC-V GNU 工具链按目标库和 vendor 字段有多种变体：
 
@@ -235,7 +235,7 @@ RISC-V GNU 工具链按目标库和 vendor 字段有多种变体：
 | `riscv64-linux-gnu-gcc` | Linux ABI | glibc | Ubuntu/Debian 发行版官方包，功能等价 |
 | `riscv64-unknown-elf-gcc` | 裸机 ELF | newlib | 用于没有操作系统的嵌入式程序 |
 
-### 5.3 初始环境与问题
+### 7.3 初始环境与问题
 
 环境初始化后，本机已安装 `riscv64-linux-gnu-gcc`（gcc 11.4.0）和 `riscv64-unknown-elf-gcc`（gcc 10.2.0），但缺少 nexus-am 默认调用的 `riscv64-unknown-linux-gnu-gcc`。因此最初编译 hello 时必须加参数：
 
@@ -245,7 +245,7 @@ make ARCH=riscv64-xs LINUX_GNU_TOOLCHAIN=1
 
 虽然这种方式可以工作，但每次输入较长，且与官方默认流程不一致，因此决定安装真正的 `riscv64-unknown-linux-gnu-gcc`。
 
-### 5.4 安装 `riscv64-unknown-linux-gnu-gcc`
+### 7.4 安装 `riscv64-unknown-linux-gnu-gcc`
 
 从 [RISC-V GNU Toolchain 官方 Release 页面](https://github.com/riscv-collab/riscv-gnu-toolchain/releases) 下载适用于 Ubuntu 22.04 的预编译版本：
 
@@ -277,7 +277,7 @@ which riscv64-unknown-linux-gnu-gcc
 riscv64-unknown-linux-gnu-gcc --version
 ```
 
-### 5.5 验证安装与编译
+### 7.5 验证安装与编译
 
 验证工具链已正确安装：
 
@@ -304,10 +304,10 @@ cd $NOOP_HOME
 输出：
 
 ```text
-hello xiangshan, I am rvpeak, IP address
+hello xiangshan, I am rvpeak, IP:10.100.173.123
 Core 0: HIT GOOD TRAP at pc = 0x8000014c
 ```
 
 ## 八、结论
 
-环境部署成功，可正常编译香山仿真器并运行 Hello XiangShan 程序。已按赛题要求修改并运行 hello 程序，成功输出 `hello xiangshan, I am rvpeak, IP address`。当前 xs-env 中各子模块版本稳定，具备进入第二阶段 vdot 指令设计与实现的条件。
+环境部署成功，可正常编译香山仿真器并运行 Hello XiangShan 程序。已按赛题要求修改并运行 hello 程序，成功输出 `hello xiangshan, I am rvpeak, IP:10.100.173.123`。当前 xs-env 中各子模块版本稳定，具备进入第二阶段 vdot 指令设计与实现的条件。
