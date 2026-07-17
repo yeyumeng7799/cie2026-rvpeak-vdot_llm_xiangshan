@@ -14,5 +14,5 @@
 
 | 文件名 | 用途 | 提交位置 |
 |--------|------|----------|
-| `stage1_operation_recording.webm` | 第一阶段操作过程录屏 | 大赛系统视频提交位置 ① |
+| `stage1_operation_recording.webm` | 第一阶段完整操作过程录屏（2026-07-17 重新录制，含真实 IP 输出） | 大赛系统视频提交位置 ① |
 | `hello_xiangshan_screenshot.png` | hello 程序运行结果截图 | 大赛系统文档提交位置 ① / 本仓库备份 |

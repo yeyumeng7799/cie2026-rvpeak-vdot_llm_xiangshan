@@ -162,6 +162,35 @@ Seed=0 Guest cycle spent: 6,702
 Host time spent: 9,548ms
 ```
 
+### 5.3 终端操作完整记录
+
+以下为实际终端操作过程的完整记录：
+
+```text
+yym@yym:~/xs-env/XiangShan$ cd
+yym@yym:~$ cd /home/yym/xs-env
+yym@yym:~/xs-env$ source env.sh
+SET XS_PROJECT_ROOT: /home/yym/xs-env
+SET NOOP_HOME (XiangShan RTL Home): /home/yym/xs-env/XiangShan
+SET NEMU_HOME: /home/yym/xs-env/NEMU
+SET AM_HOME: /home/yym/xs-env/nexus-am
+SET DRAMSIM3_HOME: /home/yym/xs-env/DRAMsim3
+yym@yym:~/xs-env$ cd $AM_HOME/apps/hello
+yym@yym:~/xs-env/nexus-am/apps/hello$ make ARCH=riscv64-xs
+# Building hello [riscv64-xs] with AM_HOME {/home/yym/xs-env/nexus-am}
+# Building lib-am [riscv64-xs]
++ AS src/nemu/common/mainargs.S
++ AR -> build/am-riscv64-xs.a
+# Building lib-klib [riscv64-xs]
+# Creating binary image [riscv64-xs]
++ LD -> build/hello-riscv64-xs.elf
++ OBJCOPY -> build/hello-riscv64-xs.bin
+yym@yym:~/xs-env/nexus-am/apps/hello$ cd $NOOP_HOME
+yym@yym:~/xs-env/XiangShan$ ./build/emu -i $AM_HOME/apps/hello/build/hello-riscv64-xs.bin --no-diff
+```
+
+运行 emu 后的输出结果见 5.2 节"实际输出"。
+
 运行过程录屏已本地保存至 `videos/stage1_operation_recording.webm`，后续将上传至大赛系统视频提交位置，不放入本代码仓库。
 
 ## 六、当前环境状态
