@@ -15,60 +15,63 @@
 ```c
 #include <klib.h>
 
-#define VLEN_BYTES 16
 #define NUM_ELEMS 16
 
-static int8_t vs1_buf[VLEN_BYTES] __attribute__((aligned(16)));
-static int8_t vs2_buf[VLEN_BYTES] __attribute__((aligned(16)));
-static int8_t vd_buf[VLEN_BYTES] __attribute__((aligned(16)));
+static void run_vadd_vv(int8_t *src1, int8_t *src2, int8_t *dst) {
+  asm volatile("vsetivli zero, 16, e8, m1, ta, ma\n"
+               "vle8.v v1, (%0)\n"
+               "vle8.v v2, (%1)\n"
+               "vadd.vv v3, v1, v2\n"
+               "vse8.v v3, (%2)\n"
+               "fence rw, rw\n"
+               :
+               : "r"(src1), "r"(src2), "r"(dst)
+               : "v0", "v1", "v2", "v3", "memory");
+}
 
 int main() {
-    int i;
-    int pass = 1;
+  // 启用向量扩展 (MSTATUS.VS = Initial)
+  // AM 框架的 start.S 只开了浮点 (MSTATUS_FS)，
+  // 没开向量扩展 (MSTATUS_VS)，需要手动启用
+  asm volatile(
+    "li a0, 0x200\n"
+    "csrs mstatus, a0\n"
+    ::: "a0"
+  );
 
-    // 准备测试数据
-    // vs1 = [1, 2, 3, ..., 16]
-    // vs2 = [16, 15, 14, ..., 1]
-    // vd  = [17, 17, 17, ..., 17]
-    for (i = 0; i < NUM_ELEMS; i++) {
-        vs1_buf[i] = (int8_t)(i + 1);
-        vs2_buf[i] = (int8_t)(NUM_ELEMS - i);
+  int8_t vs1[NUM_ELEMS] __attribute__((aligned(16)));
+  int8_t vs2[NUM_ELEMS] __attribute__((aligned(16)));
+  int8_t vd[NUM_ELEMS] __attribute__((aligned(16)));
+  int i;
+  int pass = 1;
+
+  for (i = 0; i < NUM_ELEMS; i++) {
+    vs1[i] = (int8_t)(i + 1);
+    vs2[i] = (int8_t)(NUM_ELEMS - i);
+  }
+
+  run_vadd_vv(vs1, vs2, vd);
+
+  for (i = 0; i < NUM_ELEMS; i++) {
+    int8_t expected = (int8_t)((i + 1) + (NUM_ELEMS - i));
+    if (vd[i] != expected) {
+      pass = 0;
     }
+  }
 
-    // 通过内联汇编执行 vadd.vv 指令
-    asm volatile(
-        "vsetivli zero, 16, e8, m1, ta, ma\n"   // 配置向量寄存器：SEW=8, LMUL=1, VL=16
-        "vle8.v v1, (%[src1])\n"                // 从内存加载 vs1 到 v1
-        "vle8.v v2, (%[src2])\n"                // 从内存加载 vs2 到 v2
-        "vadd.vv v3, v1, v2\n"                  // v3 = v1 + v2（核心分析对象）
-        "vse8.v v3, (%[dst])\n"                 // 将结果存回内存
-        :
-        : [src1] "r"(vs1_buf), [src2] "r"(vs2_buf), [dst] "r"(vd_buf)
-        : "v0", "v1", "v2", "v3", "memory"
-    );
+  if (pass) {
+    printf("vadd.vv PASSED\n");
+    asm volatile("li a7, 0\n");  // 标记成功
+  } else {
+    printf("vadd.vv FAILED\n");
+    asm volatile("li a7, 1\n");  // 标记失败
+  }
 
-    // 验证结果
-    for (i = 0; i < NUM_ELEMS; i++) {
-        int8_t expected = (int8_t)((i + 1) + (NUM_ELEMS - i));
-        if (vd_buf[i] != expected) {
-            printf("FAIL: vd[%d]=%d, expected=%d\n", i, vd_buf[i], expected);
-            pass = 0;
-        }
-    }
-
-    if (pass) {
-        printf("vadd.vv test PASSED\n");
-        printf("vs1 = [1,2,3,...,16]\n");
-        printf("vs2 = [16,15,14,...,1]\n");
-        printf("vd  = [17,17,17,...,17]\n");
-        for (i = 0; i < NUM_ELEMS; i++) {
-            printf("vd[%d] = %d\n", i, vd_buf[i]);
-        }
-    }
-
-    return 0;
+  return pass ? 0 : 1;
 }
 ```
+
+> **关键修改说明**：AM 框架的启动代码 `start.S` 只启用了浮点扩展（`MSTATUS_FS`），没有启用向量扩展（`MSTATUS_VS`）。如果不在 `main()` 开头手动设置 `MSTATUS.VS` 位，执行 `vsetivli` 等向量指令时会触发非法指令异常，导致程序卡死。`MSTATUS_VS` 位于 bits[10:9]，设为 `01`（Initial）即可启用，对应值 `0x200`。
 
 ### 2.2 Makefile
 
@@ -76,6 +79,7 @@ int main() {
 NAME = vadd-test
 SRCS = vadd_test.c
 MARCH ?= rv64gcv_zba_zbb_zbc_zbs
+CFLAGS += -fno-tree-vectorize -fno-tree-loop-vectorize
 
 include $(AM_HOME)/Makefile.app
 ```
@@ -94,40 +98,73 @@ include $(AM_HOME)/Makefile.app
 
 ## 三、仿真运行与波形生成
 
-### 3.1 编译测试程序
+### 3.1 编译 NEMU 参考模型
+
+emu 依赖 NEMU 作为 DiffTest 参考模型，需要先编译 NEMU 的共享库：
+
+```bash
+cd /home/yym/xs-env/NEMU
+make riscv64-xs-ref_defconfig
+make -j$(nproc)
+```
+
+编译成功后生成 `build/riscv64-nemu-interpreter-so`。
+
+> **说明**：NEMU 首次编译需要从 GitHub 克隆 softfloat、nanopb、LibCheckpoint 等子模块。如果网络代理不可用，需先取消 git 代理配置（`git config --global --unset http.proxy`）或启动代理软件。
+
+### 3.2 编译测试程序
 
 ```bash
 cd /home/yym/xs-env
 source env.sh
-cd $AM_HOME/apps/vadd-test
-make ARCH=riscv64-xs
+AM_HOME=/home/yym/xs-env/nexus-am make -C $AM_HOME/apps/vadd-test ARCH=riscv64-xs
 ```
 
-### 3.2 运行仿真并生成波形
+> **说明**：如果环境中 `AM_HOME` 指向了其他路径（如 ysyx-workbench），需要显式覆盖 `AM_HOME` 环境变量指向 `xs-env/nexus-am`。
+
+### 3.3 运行仿真并生成波形
 
 ```bash
 cd $NOOP_HOME
-./build/emu -i $AM_HOME/apps/vadd-test/build/vadd-test-riscv64-xs.bin --no-diff --dump-wave -b 0 -e 2000
+./build/emu -i $AM_HOME/apps/vadd-test/build/vadd-test-riscv64-xs.bin --no-diff --dump-wave
 ```
 
 参数说明：
-- `--no-diff`：不启用 DiffTest，仅运行功能
-- `--dump-wave`：生成波形文件
-- `-b 0 -e 2000`：只记录前 2000 个周期的波形，避免文件过大
+- `--no-diff`：不启用 DiffTest，仅运行功能验证（NEMU 参考模型与 KunminghuV2 配置存在差异，difftest 会误报，因此关闭）
+- `--dump-wave`：生成 VCD 波形文件
 
-### 3.3 波形文件
+### 3.4 波形文件
 
-波形文件生成在 `$NOOP_HOME` 目录下，格式为 `.vcd`（编译时使用 `EMU_TRACE=1`）。
+波形文件生成在 `$NOOP_HOME/build/` 目录下，格式为 `.vcd`（编译 emu 时使用 `EMU_TRACE=1`），文件约 1.3 GB。
 
-### 3.4 查看波形
-
-使用 surfer 或 gtkwave 打开波形文件：
+由于 VCD 文件较大（约 1.3 GB），先转换为 FST 格式以提升加载速度：
 
 ```bash
-surfer *.vcd
+vcd2fst *.vcd vadd.fst
+surfer vadd.fst
 # 或
-gtkwave *.vcd
+gtkwave vadd.fst
 ```
+
+### 3.5 功能验证波形
+
+程序运行结束后，UART 依次输出 `vadd.vv PASSED\n`，从波形中可以清晰观察到这一过程。
+
+#### 全局视角
+
+下图为 Zoom Fit 后的全局波形，可以看到 `difftest_uart_out_valid` 信号的一排脉冲尖峰，每个脉冲对应一个字符的输出：
+
+![UART 输出全局波形](./images/01_uart_overview.png)
+
+#### 首字符输出细节
+
+放大到第一个 UART 脉冲，可以看到 `difftest_uart_out_ch` 的值为 `0x76`，即 ASCII 字符 `v`，是 `vadd.vv PASSED` 的第一个字符：
+
+![UART 首字符输出波形](./images/02_uart_first_char.png)
+
+后续字符依次为 `0x61`(a)、`0x64`(d)、`0x64`(d)、`0x2e`(.)、`0x76`(v)、`0x76`(v)、`0x20`(空格)、`0x50`(P)、`0x41`(A)、`0x53`(S)、`0x53`(S)、`0x45`(E)、`0x44`(D)、`0x0a`(\n)，构成完整的 `vadd.vv PASSED\n` 输出。
+
+UART 每个字符之间间隔较大，这是因为 UART 按波特率逐字符传输，每个字符需要数千个时钟周期。这证明 vadd.vv 指令执行正确，功能验证通过。
 
 ## 四、定位目标指令
 
@@ -154,7 +191,13 @@ grep "vadd.vv" $AM_HOME/apps/vadd-test/build/vadd-test-riscv64-xs.txt
 
 ### 4.3 在波形中定位
 
-记录 `vadd.vv` 指令的 PC 地址，在波形中搜索该 PC 值，定位指令进入译码阶段的时刻。
+通过反汇编可知 `vadd.vv v3, v1, v2` 的指令编码为 `0x021101d7`，PC 地址为 `0x8000016a`。在 Surfer 中添加 ROB 模块下的 `difftest_commit_instr` 信号，搜索该编码值即可定位指令提交时刻。
+
+路径：`TOP.SimTop.cpu.core_with_l2.core.backend.rename.rob`
+
+下图为 vadd.vv 指令提交瞬间的波形，可以看到 `difftest_commit_valid` 为 1，`difftest_commit_instr` 为 `021101d7`，`difftest_commit_pc` 为 `8000016a`：
+
+![vadd.vv 指令提交时刻波形](./images/03_vadd_commit_moment.png)
 
 ## 五、香山向量指令代码路径
 
@@ -186,6 +229,27 @@ VADD_VV -> OPIVV(FuType.vialuF, VialuFixType.vadd_vv, T, F, F)
 
 ## 六、波形分析
 
+### 6.0 指令提交序列总览
+
+在定位到 vadd.vv 提交时刻后，观察其前后指令的提交序列，可以看到完整的向量指令序列按顺序提交：
+
+![指令提交序列波形](./images/04_commit_sequence.png)
+
+从波形中可以观察到以下指令按 PC 递增顺序依次提交：
+
+| 提交顺序 | PC | 指令编码 | 指令 |
+|---------|-----|---------|------|
+| ... | 8000015e | cc087057 | vsetivli zero,16,e8,m1,ta,ma |
+| ... | 80000162 | 02060087 | vle8.v v1,(a2) |
+| ... | 80000166 | 02058107 | vle8.v v2,(a1) |
+| **目标** | **8000016a** | **021101d7** | **vadd.vv v3,v1,v2** |
+| ... | 8000016e | 020781a7 | vse8.v v3,(a5) |
+| ... | 80000172 | 0330000f | fence rw,rw |
+
+这表明向量指令序列在香山后端流水线中按序提交，vadd.vv 在两条 vle8.v 加载指令之后、vse8.v 存储指令之前执行，符合程序逻辑顺序。
+
+> **说明**：以下各阶段分析基于香山源码调研，结合上述提交级波形验证。由于 VCD 波形中内部模块信号层级极深（约 100 万个信号），逐阶段截取内部信号波形受限于工具加载能力，因此各阶段分析以源码路径追踪为主，以提交级波形作为功能正确性的验证证据。
+
 ### 6.1 译码阶段（DecodeUnit）
 
 #### 分析对象
@@ -205,13 +269,9 @@ VADD_VV -> OPIVV(FuType.vialuF, VialuFixType.vadd_vv, T, F, F)
 | `io_deq_decodedInst_ldest` | 目标逻辑寄存器号 | v3 的编号 |
 | `io_deq_decodedInst_rfWen` | 寄存器写使能 | 1（需要写回） |
 
-#### 波形截图
+#### 波形验证
 
-![译码阶段波形](./images/译码阶段波形.png)
-
-#### 分析
-
-[待补充：根据实际波形截图，说明 vadd.vv 指令在译码阶段的信号变化]
+vadd.vv 指令在提交级波形中已确认成功提交（见 6.0 节），`difftest_commit_instr = 021101d7` 与反汇编一致，证明译码阶段正确识别了该指令。以下分析基于源码追踪。
 
 ### 6.2 重命名阶段（Rename）
 
@@ -231,13 +291,9 @@ VADD_VV -> OPIVV(FuType.vialuF, VialuFixType.vadd_vv, T, F, F)
 | `io_out_bits_psrc_1` | 物理源向量寄存器（v2 映射后） |
 | `io_out_bits_pdest` | 物理目标向量寄存器（v3 分配的新寄存器） |
 
-#### 波形截图
+#### 源码分析
 
-![重命名阶段波形](./images/重命名阶段波形.png)
-
-#### 分析
-
-[待补充：根据实际波形截图，说明向量寄存器重命名过程]
+[基于源码：向量逻辑寄存器 v1/v2/v3 经 Rename 模块映射到物理寄存器，分配 ROB 表项]
 
 ### 6.3 分发阶段（Dispatch）
 
@@ -254,13 +310,9 @@ VADD_VV -> OPIVV(FuType.vialuF, VialuFixType.vadd_vv, T, F, F)
 | `io_allocPregs_0_valid` | 目标物理寄存器分配有效 |
 | `io_allocPregs_0_bits` | 目标物理寄存器编号 |
 
-#### 波形截图
+#### 源码分析
 
-![分发阶段波形](./images/分发阶段波形.png)
-
-#### 分析
-
-[待补充：根据实际波形截图，说明分发到向量发射队列的过程]
+[基于源码：指令查询源物理寄存器就绪状态后写入向量发射队列]
 
 ### 6.4 执行阶段（Execute）
 
@@ -293,13 +345,9 @@ VIAluFix（Wrapper）
 | `vIntFixpAlus_0_vIntAdder64b_out` | 加法器输出 |
 | `io_out_bits_res_data` | 最终结果（经 Mgu 处理后） |
 
-#### 波形截图
+#### 源码分析
 
-![执行阶段波形](./images/执行阶段波形.png)
-
-#### 分析
-
-[待补充：根据实际波形截图，说明 128 位数据如何分成两块 64 位并行处理，8 位加法器链如何工作]
+VIAluFix（Wrapper）将 128 位向量数据分成 2 个 64 位块并行处理。每个 VIntFixpAlu64b 内部的 VIntAdder64b 由 8 个 8 位加法器链式串联，按 SEW=8 在每个 8 位边界截断进位，实现 8 个 int8 元素的并行加法。最终结果经 Mgu 处理 mask/tail 元素后输出。
 
 ### 6.5 写回阶段（Writeback）
 
@@ -315,13 +363,9 @@ VIAluFix（Wrapper）
 | `io_out_valid` | 写回有效 |
 | `io_out_ready` | 写回就绪 |
 
-#### 波形截图
+#### 源码分析
 
-![写回阶段波形](./images/写回阶段波形.png)
-
-#### 分析
-
-[待补充：根据实际波形截图，说明结果写回过程]
+128 位结果经 Mgu 处理后写回目标物理向量寄存器，更新 BusyTable，最终按 ROB 顺序提交。提交时刻已在 6.0 节的波形中验证。
 
 ## 七、完整数据通路总结
 
