@@ -87,6 +87,52 @@ make emu CONFIG=MinimalConfig EMU_TRACE=1 -j$(nproc)
 
 ![编译emu](./images/编译emu.png)
 
+### 3.6 切换至 KunminghuV2Config 全量编译
+
+赛题要求基于昆明湖 V2 处理器架构开发，因此仅编译 MinimalConfig 是不够的。在完成 MinimalConfig 环境验证后，切换到 `kunminghu-v2` 分支并使用 `KunminghuV2Config` 进行全量编译：
+
+```bash
+# 切换到 kunminghu-v2 分支
+cd $NOOP_HOME
+git checkout kunminghu-v2
+git submodule update --init --recursive
+
+# 全量编译
+make emu CONFIG=KunminghuV2Config EMU_TRACE=1 -j16
+```
+
+> **为何在阶段一就提前使用 V2 全量编译？**
+>
+> 原计划是在阶段一使用 MinimalConfig 快速验证环境，阶段二再切换到 KunminghuV2Config。但实际操作中发现 MinimalConfig 存在以下限制：
+>
+> 1. **向量指令支持不完整**：MinimalConfig 虽然保留了向量扩展（VfPreg 160 项），但其流水线规模和缓存配置大幅缩减，在运行 vadd-test 等向量测试程序时仿真速度极慢甚至无法正常完成
+> 2. **赛题要求基于 V2**：赛题明确要求"基于香山昆明湖 V2 处理器架构"开发 vdot 指令，阶段一的向量加法指令分析也需要在 V2 架构下进行，以确保分析结果对阶段二的 vdot 设计有直接参考价值
+> 3. **提前发现问题**：在阶段一就完成 V2 全量编译，能及早暴露环境配置、工具链兼容性、NEMU 对齐等问题，避免到阶段二才发现要重新搭环境
+>
+> 因此决定在阶段一即完成 V2 全量编译，虽然编译耗时远超 MinimalConfig，但为后续阶段打下了坚实基础。
+
+#### 编译规模与耗时
+
+KunminghuV2Config 的编译规模远超 MinimalConfig：
+
+| 对比项 | MinimalConfig | KunminghuV2Config |
+|--------|--------------|-------------------|
+| Verilator 生成 .cpp 文件数 | ~250 | **925** |
+| C++ 总行数 | ~400 万 | **约 1700 万** |
+| 首次编译耗时（20 核） | 约 5 小时 | **约 25 小时** |
+| emu 二进制大小 | ~80 MB | **264 MB** |
+| L2 Cache | 64 KB | 1 MB（4 banks） |
+| L3 Cache | ~512 KB | 16 MB（4 banks, 16 ways） |
+| 互联协议 | TileLink | CHI |
+
+全量编译过程：
+- 第一阶段（约 14 小时）：编译 024root 核心组合逻辑文件（621 个大文件，每个 1-6 万行）
+- 中途因机器连续运行时间过长中断一次，增量编译续跑
+- 第二阶段（约 11 小时）：完成剩余 024root + Trace 波形文件（295 个）
+- 最终链接生成 `build/emu`（264 MB ELF 可执行文件）
+
+> **编译优化建议**：后续可使用 `OBJCACHE=ccache` 编译，首次仍需完整编译，但之后的增量编译（如修改 vdot RTL 后重编）可从 25 小时缩短至 10-20 分钟。
+
 ## 四、遇到的问题及解决方案
 
 | 问题描述 | 解决方法 |
@@ -204,10 +250,14 @@ yym@yym:~/xs-env/XiangShan$ ./build/emu -i $AM_HOME/apps/hello/build/hello-riscv
 | 项目 | 路径/Commit |
 |------|-------------|
 | xs-env 路径 | `/home/yym/xs-env` |
-| xs-env 最新 commit | `d0e08fb` |
-| XiangShan 最新 commit | `16ae9ddcd` |
+| XiangShan 分支 | `kunminghu-v2` |
+| XiangShan 最新 commit | `52262f303` |
+| NEMU 配置 | `riscv64-xs-ref_defconfig` |
 | NEMU 最新 commit | `c5b49241` |
 | nexus-am 最新 commit | `92b36da1` |
+| emu 编译配置 | `KunminghuV2Config, EMU_TRACE=1` |
+| emu 路径 | `$NOOP_HOME/build/emu`（264 MB） |
+| NEMU 共享库 | `$NEMU_HOME/build/riscv64-nemu-interpreter-so` |
 
 ## 七、RISC-V 交叉编译工具链安装与配置
 
@@ -310,4 +360,8 @@ Core 0: HIT GOOD TRAP at pc = 0x8000014c
 
 ## 八、结论
 
-环境部署成功，可正常编译香山仿真器并运行 Hello XiangShan 程序。已按赛题要求修改并运行 hello 程序，成功输出 `hello xiangshan, I am rvpeak, IP:10.100.173.123`。当前 xs-env 中各子模块版本稳定，具备进入第二阶段 vdot 指令设计与实现的条件。
+环境部署成功。分两步完成仿真器编译：
+1. **MinimalConfig**（约 5 小时）：用于快速验证环境搭建是否正确，成功运行 hello 程序
+2. **KunminghuV2Config**（约 25 小时）：赛题要求的目标架构全量编译，生成的 emu 用于阶段一的向量加法指令分析和阶段二的 vdot 开发
+
+已按赛题要求修改并运行 hello 程序，成功输出 `hello xiangshan, I am rvpeak, IP:10.100.173.123`。当前 xs-env 中各子模块版本稳定，XiangShan 处于 `kunminghu-v2` 分支，具备进入第二阶段 vdot 指令设计与实现的条件。

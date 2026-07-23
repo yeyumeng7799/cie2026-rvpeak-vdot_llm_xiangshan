@@ -98,7 +98,28 @@ include $(AM_HOME)/Makefile.app
 
 ## 三、仿真运行与波形生成
 
-### 3.1 编译 NEMU 参考模型
+### 3.1 仿真器配置
+
+本分析使用 **KunminghuV2Config** 全量编译的 emu（`EMU_TRACE=1`），而非 MinimalConfig。原因如下：
+
+| 对比项 | MinimalConfig | KunminghuV2Config（本分析使用） |
+|--------|--------------|-------------------------------|
+| 向量指令支持 | 流水线规模缩减，向量程序运行极慢 | 完整 6 发射乱序流水线，向量指令正常执行 |
+| 缓存配置 | L2=64KB, L3=512KB | L2=1MB, L3=16MB |
+| 互联协议 | TileLink | CHI |
+| 赛题要求 | ❌ 非目标架构 | ✅ 赛题要求基于 V2 开发 |
+| 编译耗时 | ~5 小时 | ~25 小时 |
+| 适用场景 | 快速环境验证 | 向量指令分析、vdot 开发 |
+
+赛题明确要求"基于香山昆明湖 V2 处理器架构"开发 vdot 指令。阶段一的向量加法指令分析在 V2 架构下进行，能确保分析结果对阶段二的 vdot 设计有直接参考价值——流水线结构、功能单元分配、数据通路在 V2 和 MinimalConfig 之间存在差异，只有基于 V2 的分析才有意义。
+
+emu 编译命令：
+```bash
+cd $NOOP_HOME
+make emu CONFIG=KunminghuV2Config EMU_TRACE=1 -j16
+```
+
+### 3.2 编译 NEMU 参考模型
 
 emu 依赖 NEMU 作为 DiffTest 参考模型，需要先编译 NEMU 的共享库：
 
@@ -112,7 +133,7 @@ make -j$(nproc)
 
 > **说明**：NEMU 首次编译需要从 GitHub 克隆 softfloat、nanopb、LibCheckpoint 等子模块。如果网络代理不可用，需先取消 git 代理配置（`git config --global --unset http.proxy`）或启动代理软件。
 
-### 3.2 编译测试程序
+### 3.3 编译测试程序
 
 ```bash
 cd /home/yym/xs-env
@@ -122,7 +143,7 @@ AM_HOME=/home/yym/xs-env/nexus-am make -C $AM_HOME/apps/vadd-test ARCH=riscv64-x
 
 > **说明**：如果环境中 `AM_HOME` 指向了其他路径（如 ysyx-workbench），需要显式覆盖 `AM_HOME` 环境变量指向 `xs-env/nexus-am`。
 
-### 3.3 运行仿真并生成波形
+### 3.4 运行仿真并生成波形
 
 ```bash
 cd $NOOP_HOME
@@ -133,7 +154,7 @@ cd $NOOP_HOME
 - `--no-diff`：不启用 DiffTest，仅运行功能验证（NEMU 参考模型与 KunminghuV2 配置存在差异，difftest 会误报，因此关闭）
 - `--dump-wave`：生成 VCD 波形文件
 
-### 3.4 波形文件
+### 3.5 波形文件
 
 波形文件生成在 `$NOOP_HOME/build/` 目录下，格式为 `.vcd`（编译 emu 时使用 `EMU_TRACE=1`），文件约 1.3 GB。
 
@@ -146,7 +167,7 @@ surfer vadd.fst
 gtkwave vadd.fst
 ```
 
-### 3.5 功能验证波形
+### 3.6 功能验证波形
 
 程序运行结束后，UART 依次输出 `vadd.vv PASSED\n`，从波形中可以清晰观察到这一过程。
 
